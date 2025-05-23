@@ -18,8 +18,14 @@ class User(db.Model):
     def serialize(self):
         return {
             "id": self.id,
-            "name": self.name,
-            "favoritos": [f.serialize() for f in self.favoritos]
+            "nombre": self.name,
+            # Incluye favoritos de forma simple, sin usar .serialize() completo
+            "favoritos": [
+                {
+                    "pokemon_id": f.pokemon.id,
+                    "pokemon_nombre": f.pokemon.name
+                } for f in self.favoritos
+            ]
         }
 
 
@@ -53,5 +59,6 @@ class Favoritos(db.Model):
     def serialize(self):
         return {
             # para mostrar info completa del pokemon favorito
-            "pokemon": self.pokemon.serialize()
+            "favorito": self.pokemon.serialize(),
+            # "pokemon": self.pokemon.serialize()
         }

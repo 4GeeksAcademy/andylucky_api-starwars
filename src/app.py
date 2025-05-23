@@ -67,8 +67,39 @@ def get_pokemon():
 def get_usuario():
     stmt = select(User)
     users = db.session.execute(stmt).scalars().all()
-
     return jsonify([user.serialize() for user in users]), 200
+
+
+@app.route("/favoritos", methods=["GET"])
+def get_favorito():
+    stmt = select(Favoritos)
+    favoritos = db.session.execute(stmt).scalars().all()
+
+    pokemons_unicos = {}
+    # un diccionario no permite claves repetidas, asi que
+    # si encuentra una la sobreescribe a la que habia
+    for fav in favoritos:
+        if fav.pokemon.id in pokemons_unicos:
+            # Si ya está, aumentamos la cantidad
+            pokemons_unicos[fav.pokemon.id]["cantidad_veces_favorito"] += 1
+        else:
+            # Si no está, la inicializamos con cantidad 1
+            pokemons_unicos[fav.pokemon.id] = {
+                "favorito_id": fav.pokemon.id,
+                "pokemon_nombre": fav.pokemon.name,
+                "cantidad_veces_favorito": 1
+            }
+    return jsonify(list(pokemons_unicos.values())), 200
+
+
+@app.route("/favoritos/<int:id>", methods=["GET"])
+def get_onefavorito(id):
+    stmt = select(Favoritos).where(Favoritos.id == id)
+    # Esto te da una lista de instancias de Pokemon
+    favorito = db.session.execute(stmt).scalar_one_or_none()
+    if favorito is None:
+        return jsonify({"error": "Pokemon not found"}), 404
+    return jsonify(favorito.serialize()), 200
 
 
 # GET ONE: Muestra un pokemon por su id
@@ -118,24 +149,48 @@ def create_users():
     return jsonify([usuario.serialize() for usuario in nuevos_usuarios]), 201
 
 
-# POST: crea un nuevo pokemon
-@app.route("/createpoke", methods=["POST"])
-def create_pokemon():
-    # extraemos la informacion del body puede ser con request.json
+# POST: crea un nuevo pokemon favorito para un usuario dado
+@app.route("/createpokefavorito/<int:id>", methods=["POST"])
+def create_poke_favorito(id):
     data = request.get_json()
-    # verificamos que tenemos los elementos OBLIGATORIOS para crear un registro nuevo
     if not data or "name" not in data or "url" not in data:
         return jsonify({"error": "Missing data"}), 400
-    # creamos un nuevo objeto
+    # Buscar usuario por id
+    stmt = select(User).where(User.id == id)
+    usuario = db.session.execute(stmt).scalar_one_or_none()
+    if usuario is None:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    nombre_nuevo = data["name"].strip().lower()
+
+    # Comprobar si usuario ya tiene un favorito con ese nombre
+    existe_favorito = any(
+        favorito.pokemon.name.strip().lower() == nombre_nuevo
+        for favorito in usuario.favoritos
+    )
+    if existe_favorito:
+        return jsonify({"error": "El usuario ya tiene un favorito con ese nombre"}), 409
+
+    # Crear nuevo Pokémon
     new_pokemon = Pokemon(
         name=data["name"],
-        url=data["url"],  # en prod deberías hashearla
+        url=data["url"]
     )
-    # lo añadismo a la BD
     db.session.add(new_pokemon)
-    # almacenamos los cambios
+    db.session.flush()  # para asignar ID al nuevo Pokémon antes de crear Favoritos
+
+    # Crear nueva relación Favoritos entre usuario y el nuevo Pokémon
+    nuevo_favorito = Favoritos(
+        usuario=usuario,
+        pokemon=new_pokemon
+    )
+    db.session.add(nuevo_favorito)
+
+    # Guardar cambios en la base de datos
     db.session.commit()
-    return jsonify(new_pokemon.serialize()), 201
+
+    # Devolver usuario serializado con su lista de favoritos actualizada
+    return jsonify({"usuario": usuario.serialize()}), 201
 
 
 # PUT: Actualizamos un pokemon por el id
@@ -172,6 +227,21 @@ def delete_pokemon(id):
     # almacenamos cambios
     db.session.commit()
     return jsonify({"message": "User deleted"}), 200
+
+
+# DELETE: Elimina un pokemon-favorito por el id
+@app.route("/deletefavorito/<int:id>", methods=["DELETE"])
+def delete_pokemonfavorito(id):
+    # seleccionamos favorito a eliminar
+    stmt = select(Favoritos).where(Favoritos.id == id)
+    favorito = db.session.execute(stmt).scalar_one_or_none()
+    if favorito is None:
+        return jsonify({"error": "favorito not found"}), 404
+    # eliminamos favorito
+    db.session.delete(favorito)
+    # almacenamoss cambios
+    db.session.commit()
+    return jsonify({"message": "favorito deleted"}), 200
 
 
 # this only runs if `$ python src/app.py` is executed

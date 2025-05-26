@@ -1,5 +1,6 @@
+
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import String, Boolean, ForeignKey
+from sqlalchemy import String, Boolean, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column,  relationship
 from collections import OrderedDict
 db = SQLAlchemy()
@@ -45,20 +46,44 @@ class Pokemon(db.Model):
             "url": self.url
         }
 
+# Son algo asi como las armas para capturar pokemon
+
+
+class Pokeballs(db.Model):
+    __tablename__ = "pokeballs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    efectividad: Mapped[int] = mapped_column(Integer)
+    descripcion: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False)
+
+    # favoritos: Mapped[list["Favoritos"]] = relationship(
+    #     "Favoritos", back_populates="pokeballs")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "nombre": self.nombre,
+            "efectividad": self.efectividad,
+            "descripcion": self.descripcion
+        }
+
 
 class Favoritos(db.Model):
     __tablename__ = "favoritos"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
     pokemon_id: Mapped[int] = mapped_column(ForeignKey("pokemon.id"))
+    # pokeballs_id: Mapped[int] = mapped_column(
+    #     ForeignKey("pokeballs.id"), nullable=True)
 
     usuario: Mapped["User"] = relationship("User", back_populates="favoritos")
     pokemon: Mapped["Pokemon"] = relationship(
         "Pokemon", back_populates="favoritos")
+    # pokeballs: Mapped["Pokeballs"] = relationship(
+    #     "Pokeballs", back_populates="favoritos")
 
     def serialize(self):
         return {
-            # para mostrar info completa del pokemon favorito
             "favorito": self.pokemon.serialize(),
-            # "pokemon": self.pokemon.serialize()
         }

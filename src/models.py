@@ -22,10 +22,16 @@ class User(db.Model):
             "nombre": self.name,
             # Incluye favoritos de forma simple, sin usar .serialize() completo
             "favoritos": [
-                {
-                    "pokemon_id": f.pokemon.id,
-                    "pokemon_nombre": f.pokemon.name
-                } for f in self.favoritos
+               {
+                   "pokemon_id": f.pokemon.id,
+                   "pokemon_nombre": f.pokemon.name
+               } if f.pokemon else (
+                   {
+                       "pokeballs_id": f.pokeballs.id,
+                       "pokeballs_nombre": f.pokeballs.nombre
+                   } if f.pokeballs else {}
+               )
+                for f in self.favoritos
             ]
         }
 
@@ -47,8 +53,6 @@ class Pokemon(db.Model):
         }
 
 # Son algo asi como las armas para capturar pokemon
-
-
 class Pokeballs(db.Model):
     __tablename__ = "pokeballs"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -57,8 +61,8 @@ class Pokeballs(db.Model):
     descripcion: Mapped[str] = mapped_column(
         String(100), unique=True, nullable=False)
 
-    # favoritos: Mapped[list["Favoritos"]] = relationship(
-    #     "Favoritos", back_populates="pokeballs")
+    favoritos: Mapped[list["Favoritos"]] = relationship(
+        "Favoritos", back_populates="pokeballs")
 
     def serialize(self):
         return {
@@ -72,18 +76,34 @@ class Pokeballs(db.Model):
 class Favoritos(db.Model):
     __tablename__ = "favoritos"
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
-    pokemon_id: Mapped[int] = mapped_column(ForeignKey("pokemon.id"))
-    # pokeballs_id: Mapped[int] = mapped_column(
-    #     ForeignKey("pokeballs.id"), nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
+    pokemon_id: Mapped[int] = mapped_column(
+        ForeignKey("pokemon.id"), nullable=True)
+    pokeballs_id: Mapped[int] = mapped_column(
+        ForeignKey("pokeballs.id"), nullable=True)
 
     usuario: Mapped["User"] = relationship("User", back_populates="favoritos")
     pokemon: Mapped["Pokemon"] = relationship(
         "Pokemon", back_populates="favoritos")
-    # pokeballs: Mapped["Pokeballs"] = relationship(
-    #     "Pokeballs", back_populates="favoritos")
+    pokeballs: Mapped["Pokeballs"] = relationship(
+        "Pokeballs", back_populates="favoritos")
 
     def serialize(self):
-        return {
-            "favorito": self.pokemon.serialize(),
-        }
+        if self.pokemon:
+            return {
+                "tipo": "pokemon",
+                "id": self.pokemon.id,
+                "nombre": self.pokemon.name,
+                "url": self.pokemon.url
+            }
+        elif self.pokeballs:
+            return {
+                "tipo": "pokeball",
+                "id": self.pokeballs.id,
+                "nombre": self.pokeballs.nombre,
+                "efectividad": self.pokeballs.efectividad,
+            }
+        else:
+            return {
+                "tipo": "desconocido"
+            }

@@ -76,21 +76,21 @@ def get_favorito():
     stmt = select(Favoritos)
     favoritos = db.session.execute(stmt).scalars().all()
 
-    pokeballs_unicos = {}
+    pokemon_unicos = {}
     # un diccionario no permite claves repetidas, asi que
     # si encuentra una la sobreescribe a la que habia
     for fav in favoritos:
-        if fav.pokemon.id in pokeballs_unicos:
+        if fav.pokemon.id in pokemon_unicos:
             # Si ya está, aumentamos la cantidad
-            pokeballs_unicos[fav.pokemon.id]["cantidad_veces_favorito"] += 1
+            pokemon_unicos[fav.pokemon.id]["cantidad_veces_favorito"] += 1
         else:
             # Si no está, la inicializamos con cantidad 1
-            pokeballs_unicos[fav.pokemon.id] = {
+            pokemon_unicos[fav.pokemon.id] = {
                 "favorito_id": fav.pokemon.id,
                 "pokemon_nombre": fav.pokemon.name,
                 "cantidad_veces_favorito": 1
             }
-    return jsonify(list(pokeballs_unicos.values())), 200
+    return jsonify(list(pokemon_unicos.values())), 200
 
 
 @app.route("/pokeballs", methods=["GET"])
@@ -205,7 +205,7 @@ def create_poke_favorito(id):
 @app.route("/favorito/pokeballs/<int:id>", methods=["POST"])
 def create_pokeballs_favorito(id):
     data = request.get_json()
-    if not data or "nombre" not in data or "descripcion" not in data or "efectividad" not in data:
+    if not data or "nombre" not in data or "efectividad" not in data or "descripcion" not in data:
         return jsonify({"error": "Missing data"}), 400
     # Buscar usuario por id
     stmt = select(User).where(User.id == id)
@@ -217,7 +217,7 @@ def create_pokeballs_favorito(id):
 
     # Comprobar si usuario ya tiene un favorito con ese nombre
     existe_favorito = any(
-        favorito.pokemonballs.name.strip().lower() == nombre_nuevo
+        favorito.pokeballs and favorito.pokeballs.nombre.strip().lower() == nombre_nuevo
         for favorito in usuario.favoritos
     )
     if existe_favorito:
@@ -228,6 +228,7 @@ def create_pokeballs_favorito(id):
         nombre=data["nombre"],
         efectividad=data["efectividad"],
         descripcion=data["descripcion"]
+
     )
     db.session.add(new_pokeballs)
     db.session.flush()  # para asignar ID al nuevo Pokémon antes de crear Favoritos
@@ -244,25 +245,6 @@ def create_pokeballs_favorito(id):
 
     # Devolver usuario serializado con su lista de favoritos actualizada
     return jsonify({"usuario": usuario.serialize()}), 201
-
-
-# POST: crea un nuevo pokemon favorito para un usuario dado
-@app.route("/favorito/pokeballs", methods=["POST"])
-def create_pokeball_favorito():
-    data = request.get_json()
-    if not data or "nombre" not in data or "efectividad" not in data or "descripcion" not in data:
-        return jsonify({"error": "Missing data"}), 400
-
-    new_pokeball = Pokeballs(
-        nombre=data["nombre"],
-        # Por si mandas 1.0, convertir a entero
-        efectividad=int(data["efectividad"]),
-        descripcion=data["descripcion"]
-    )
-    db.session.add(new_pokeball)
-    db.session.commit()
-
-    return jsonify(new_pokeball.serialize()), 201
 
 
 # PUT: Actualizamos un pokemon por el id

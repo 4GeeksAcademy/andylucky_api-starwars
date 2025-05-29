@@ -99,9 +99,8 @@ def get_pokeballs():
     pokeballs = db.session.execute(stmt).scalars().all()
     return jsonify([p.serialize() for p in pokeballs]), 200
 
+
 # funcion get de un pokemon por su id
-
-
 @app.route("/pokeball/<int:id>", methods=["GET"])
 def get_pokeballid(id):
     stmt = select(Pokeballs).where(Pokeballs.id == id)

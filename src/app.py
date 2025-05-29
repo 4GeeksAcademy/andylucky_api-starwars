@@ -99,6 +99,33 @@ def get_pokeballs():
     pokeballs = db.session.execute(stmt).scalars().all()
     return jsonify([p.serialize() for p in pokeballs]), 200
 
+# funcion get de un pokemon por su id
+
+
+@app.route("/pokeball/<int:id>", methods=["GET"])
+def get_pokeballid(id):
+    stmt = select(Pokeballs).where(Pokeballs.id == id)
+    # Esto te da una lista de instancias de Pokemon
+    pokeball = db.session.execute(stmt).scalar_one_or_none()
+    if pokeball is None:
+        return jsonify({"error": "pokeball not found"}), 404
+    return jsonify(pokeball.serialize()), 200
+
+
+# eliminacion de un pokemon por su id
+@app.route("/pokeball/delete/<int:id>", methods=["DELETE"])
+def delete_pokeball(id):
+    # seleccionamos usuario a eliminar
+    stmt = select(Pokeballs).where(Pokeballs.id == id)
+    pokeball = db.session.execute(stmt).scalar_one_or_none()
+    if pokeball is None:
+        return jsonify({"error": "poke not found"}), 404
+    # eliminamos Pokemon
+    db.session.delete(pokeball)
+    # almacenamos cambios
+    db.session.commit()
+    return jsonify({"message": "pokeball deleted"}), 200
+
 
 @app.route("/favoritos/<int:id>", methods=["GET"])
 def get_onefavorito(id):
